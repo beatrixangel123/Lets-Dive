@@ -1,0 +1,593 @@
+///BULLET
+#region
+
+//Animation End
+image_speed = 0;
+image_index = 1;
+
+//Begin Step
+if (place_meeting(x,y,obj_wall)) instance_destroy();
+
+//collision obj_enemy
+with (other)
+{
+	hp--;
+	flash = 3;
+	hitfrom = other.direction;
+}
+
+instance_destroy();
+
+#endregion
+
+#region
+///CAMERA
+
+//Create
+
+cam = view_camera[0]; 
+follow = obj_player;
+buff = 32;
+view_w_half = camera_get_view_width(cam) * 0.5;
+view_h_half = camera_get_view_height(cam) * 0.5;
+xTo = xstart;
+yTo = ystart;
+
+//Step
+/update destination
+if (instance_exists(follow))
+{
+	xTo = follow.x;
+	yTo = follow.y;
+	
+	if ((follow).object_index == obj_enemy_d)
+	{
+		x = xTo;
+		y = yTo;
+	}
+}
+
+//update object position
+x += (xTo - x) / 25;
+y += (yTo - y) / 25;
+
+
+x = clamp(x,view_w_half,room_width-view_w_half);
+y = clamp(y,view_h_half,room_height-view_h_half);
+
+/update camera view
+camera_set_view_pos(cam,x-view_w_half,y-view_h_half);
+
+
+///ENEMY
+//Create
+vsp = 0;
+grv = 0.3;
+walksp = 1;
+hsp = walksp;
+
+hp = 4;
+flash = 0;
+hitfrom = 0;
+
+
+//Step
+vsp = vsp + grv; 
+
+/horizontal collision
+if (place_meeting(x+hsp,y,obj_wall))
+{
+	while (!place_meeting(x+sign(hsp),y,obj_wall))
+	{
+		x += sign (hsp);
+	}
+hsp = -hsp;
+}
+x += hsp;
+
+/vertical collision 
+if (place_meeting(x,y+vsp,obj_wall))
+{
+	while (!place_meeting(x,y+sign(vsp),obj_wall))
+	{
+		y += sign (vsp);
+	}
+vsp = 0;
+}
+y += vsp;
+
+/animation
+if (hsp != 0) image_xscale = sign(hsp);  
+
+
+//Draw
+draw_self();
+
+if (flash > 0)
+{
+	flash--;
+	shader_set(sh_white);
+	draw_self()
+	shader_reset();
+}
+
+//Begin Step
+if (hp <= 0)
+{
+	with (instance_create_layer(x,y,layer,obj_enemy_d))
+	{
+		direction = other.hitfrom;
+		hsp = lengthdir_x(3,direction);
+		vsp = lengthdir_y(3,direction)-2;
+		if (sign (hsp) != 0)image_xscale = sign(hsp); 
+	}
+	instance_destroy();
+}
+
+  #endregion
+
+
+  #region
+  ///ENEMY_DIE
+  //Create
+  if (hp <= 0)
+{
+	with (instance_create_layer(x,y,layer,obj_enemy_d))
+	{
+		direction = other.hitfrom;
+		hsp = lengthdir_x(3,direction);
+		vsp = lengthdir_y(3,direction)-2;
+		if (sign (hsp) != 0)image_xscale = sign(hsp); 
+	}
+	instance_destroy();
+}
+
+    //Step
+    if (done == 0)
+{
+	vsp = vsp + grv; 
+
+	//horizontal collision
+	if (place_meeting(x+hsp,y,obj_wall))
+	{
+		while (!place_meeting(x+sign(hsp),y,obj_wall))
+		{
+			x += sign (hsp);
+		}
+	hsp = 0;
+	}
+	x += hsp;
+
+	//vertical collision 
+	if (place_meeting(x,y+vsp,obj_wall))
+	{
+		if (vsp > 0) 
+		{
+			done = 1;
+			image_index = 1;
+		}
+		while (!place_meeting(x,y+sign(vsp),obj_wall))
+		{
+			y += sign(vsp);
+		}
+	vsp = 0;
+	}
+	y += vsp;
+}
+#endregion
+
+
+    
+    #region
+    ///LEVELEND
+    
+    //obj_player
+    with (obj_player)
+{
+	if (hascontrol)
+	{
+		hascontrol = false;
+		SlideTransition(TRANS_MODE.GOTO,other.target);
+	}
+}
+    #endregion
+
+
+    ///MENU1
+
+    //Create
+gui_width = display_get_gui_width();
+gui_height = display_get_gui_height();
+gui_margin = 32;
+
+menu_x = gui_width +200;
+menu_y = gui_height - gui_margin;
+menu_x_target = gui_width - gui_margin;
+menu_speed = 25; //lower is faster
+menu_font = fmenu;
+menu_itemheight = font_get_size(fmenu);
+menu_comitted = -1;
+menu_control = true;
+
+menu [1] = "Play";
+menu [0] = "Quit";
+
+menu_items = array_length_1d(menu);
+menu_cursor = 1;
+
+    //Draw GUI
+    draw_set_font(fmenu);
+draw_set_halign(fa_right);
+draw_set_valign(fa_bottom);
+
+for (var i = 0; i < menu_items; i++)
+{
+	var	offset = 2;
+	var txt = menu[i];
+		if (menu_cursor == i)
+		{
+		txt = string_insert("> ", txt, 0);
+		var col = c_white;
+		}
+		else
+		{
+			var col = c_gray;
+		}
+		var xx = menu_x;
+		var yy = menu_y - (menu_itemheight * (i * 1.5));
+		draw_set_color(c_black);
+		draw_text(xx-offset,yy,txt);
+		draw_text(xx+offset,yy,txt);
+		draw_text(xx,yy+offset,txt);
+		draw_text(xx,yy-offset,txt);
+		draw_set_color(col);
+		draw_text (xx,yy,txt);
+}
+
+  //Step
+  menu_x +=  (menu_x_target - menu_x) / menu_speed;
+
+//keyboard control
+if (menu_control)
+{
+if (keyboard_check_pressed(vk_up))
+{
+	menu_cursor++;
+	if (menu_cursor >= menu_items) menu_cursor = 0;
+}
+
+if (keyboard_check_pressed(vk_down))
+{
+	menu_cursor--;
+	if (menu_cursor < 0) menu_cursor = menu_items-1;
+}
+
+if (keyboard_check_pressed(vk_enter))
+{
+	menu_x_target = gui_width+200;
+	menu_comitted = menu_cursor;
+	menu_control = false;
+	audio_play_sound(sn_enter,10,false);
+}
+}
+
+
+if (menu_x > gui_width+150) && (menu_comitted != -1)
+{
+switch (menu_comitted)
+{
+	case 1: default: SlideTransition(TRANS_MODE.NEXT); break;
+	case 0: game_end(); break;
+}
+}
+#endregion
+
+
+    #region
+    ///PLAYER
+    //Create
+    hsp = 0;
+vsp = 0;
+grv = 0.3;
+walksp = 4;
+hascontrol = true;
+
+weapon = noone;
+pickup_radius = 50; 
+
+    //Step
+    #region
+
+if (hascontrol)
+{
+	
+	key_right = keyboard_check(vk_right) || keyboard_check(ord("D"));
+	key_left = keyboard_check(vk_left) || keyboard_check(ord("A"));
+	key_jump = keyboard_check_pressed(vk_space) || keyboard_check(ord("W"));
+	key_pickup = keyboard_check_pressed(vk_alt);
+
+}
+else
+{
+	key_right = 0;
+	key_left = 0;
+	key_jump = 0;
+}
+#endregion
+
+
+var move = key_right - key_left;
+
+hsp = move * walksp;
+
+vsp = vsp + grv; 
+
+if (place_meeting(x,y+1,obj_wall)) && (key_jump)
+{
+	vsp = -7;
+}
+
+
+//horizontal collision
+if (place_meeting(x+hsp,y,obj_wall))
+{
+	while (!place_meeting(x+sign(hsp),y,obj_wall))
+	{
+		x += sign (hsp);
+	}
+hsp = 0;
+}
+x += hsp;
+
+//vertical collision 
+if (place_meeting(x,y+vsp,obj_wall))
+{
+	while (!place_meeting(x,y+sign(vsp),obj_wall))
+	{
+		y += sign (vsp);
+	}
+vsp = 0;
+}
+y += vsp;
+
+
+//animation
+if (hsp != 0) image_xscale = sign(hsp);  
+		
+	
+//pickup weapon
+if (keyboard_check_pressed(key_pickup))
+{
+	var pickupList = ds_list_create()
+	var pickupCount = collision_circle_list(x, y, pickup_radius, obj_weapon, false, true, pickupList,true);
+	
+	if (pickupCount > 0) 
+	{
+		if (weapon == noone)
+		{
+			weapon = pickupList[| 0];
+			
+			weapon.target = id;
+			weapon.is_being_carried = true;
+		}
+		else
+		{
+			//holding weapon
+			for(var index = 0; index < pickupCount; index ++)
+			{
+				if (pickupList[| index] != weapon) 
+				{
+					//drop weapon
+					weapon.target = noone;
+					weapon.is_being_carried = false;
+					
+					//pickup
+					weapon = pickupList [| index];
+					weapon.target = id;
+					weapon.is_being_carried = true;
+					
+					break; 
+				}
+			}
+		}
+	}
+	ds_list_destroy(pickupList);
+}
+
+        //Key Press - R
+        SlideTransition(TRANS_MODE.RESTART);
+
+        //obj_enemy
+        with (obj_enemy) instance_destroy();
+instance_change(obj_player_d,true);
+
+        #endregion
+
+
+#region
+        ///PLAYER_D
+        //Create
+        hsp = 3;
+vsp = -4;
+grv = 0.2;
+walksp = 0;
+done = 0;
+
+image_speed = 0;
+image_index = 0;
+game_set_speed(30,gamespeed_fps);
+with (obj_camera) follow = other.id;
+
+        //Step
+        if (done == 0)
+{
+	vsp = vsp + grv; 
+
+	//horizontal collision
+	if (place_meeting(x+hsp,y,obj_wall))
+	{
+		while (!place_meeting(x+sign(hsp),y,obj_wall))
+		{
+			x += sign (hsp);
+		}
+	hsp = 0;
+	}
+	x += hsp;
+
+	//vertical collision 
+	if (place_meeting(x,y+vsp,obj_wall))
+	{
+		if (vsp > 0) 
+		{
+			done = 1;
+			image_index = 1;
+			alarm [0] = 60;
+		}
+		while (!place_meeting(x,y+sign(vsp),obj_wall))
+		{
+			y += sign(vsp);
+		}
+	vsp = 0;
+	}
+	y += vsp;
+}
+
+    //Alarm 0
+        game_set_speed(60,gamespeed_fps);
+SlideTransition(TRANS_MODE.RESTART);
+        
+#endregion
+
+
+
+  #region
+        ///TRANSITION
+        //Create
+w = display_get_gui_width();
+h = display_get_gui_height();
+h_half = h * 0.5;
+enum TRANS_MODE
+{
+	OFF,
+	NEXT,
+	GOTO,
+	RESTART,
+	INTRO
+}
+mode = TRANS_MODE.INTRO; 
+percent = 1;
+target = room;
+
+          //Step
+        /// @desc progress the transition
+
+if (mode != TRANS_MODE.OFF)
+{
+	if (mode == TRANS_MODE.INTRO)
+	{
+		percent = max (0,percent - max ((percent/10),0.005));	
+	}
+	else
+	{
+		percent = min(1.2,percent + max(((1.2 - percent)/10),0.005));	
+	}
+	
+	if (percent == 1.2) || (percent == 0)
+	{
+		switch (mode)
+		{
+			case TRANS_MODE.INTRO:
+			{
+				mode = TRANS_MODE.OFF;
+				break;	
+			}
+			case TRANS_MODE.NEXT:
+			{
+				mode = TRANS_MODE.INTRO;
+				room_goto_next();
+				break;	
+			}
+			case TRANS_MODE.GOTO:
+			{
+				mode = TRANS_MODE.INTRO;
+				room_goto(target);
+				break;	
+			}
+			case TRANS_MODE.RESTART:
+			{
+				game_restart();
+				break;	
+			}
+		}
+	}
+}
+
+        //Draw GUI
+
+if (mode != TRANS_MODE.OFF)
+{
+	draw_set_color(c_black);
+	draw_rectangle (0,0,w,percent*h_half,false);
+	draw_rectangle(0,h,w,h-(percent*h_half),false);
+}
+#endregion
+
+
+#region
+        ///WEAPOM
+        //Create
+        #region Interaction
+	popup_radius = 10
+	interaction_object =  instance_create_layer(x, y - 26, layer, obj_interaction); 
+	interaction_object.visible = false;
+#endregion
+
+target = noone;
+is_being_carried = false;
+
+firingdelay = 0; 
+recoil = 0;
+
+        //Begin Step
+        
+if (is_being_carried)
+{
+	image_angle = point_direction(x, y, mouse_x, mouse_y);
+
+firingdelay = firingdelay - 1;
+recoil = max(0,recoil - 1);
+if  (mouse_check_button(mb_left)) && (firingdelay < 0)
+{
+	recoil = 4;
+	firingdelay = 5;
+	audio_sound_pitch(sn_shoot,choose(0.8,1.0,1.2));
+	audio_play_sound(sn_shoot,5,false);
+	
+	with (instance_create_layer(x,y,"bullet", obj_bullet)) 
+	{
+		speed = 25;
+		direction = other.image_angle + random_range (-3,3);
+		image_angle = direction;
+	}
+}
+}
+x = x - lengthdir_x(recoil,image_angle);
+y = y - lengthdir_x(recoil,image_angle)
+
+//End Step
+#region
+if (is_being_carried)
+{
+	if (target != noone)
+	{
+		x = target.x;
+		y = target.y;
+	}
+}
+#endregion
+
+
+
+#endregion
+
+
